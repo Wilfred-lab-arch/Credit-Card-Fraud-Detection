@@ -27,39 +27,165 @@ st.set_page_config(
 st.markdown("""
 <style>
 
-body {
-    background-color: #0f172a;
+/* ======================================================
+GLOBAL
+====================================================== */
+
+html, body, [class*="css"] {
+    font-family: Inter, sans-serif;
+    background-color: #0b1020;
     color: #f8fafc;
 }
 
+/* ======================================================
+MAIN CONTAINER
+====================================================== */
+
 .block-container {
-    background-color: #0f172a;
-    padding-top: 2rem;
+    padding-top: 1.5rem;
     padding-bottom: 2rem;
     padding-left: 2rem;
     padding-right: 2rem;
+    background-color: #0b1020;
 }
+
+/* ======================================================
+SIDEBAR
+====================================================== */
+
+[data-testid="stSidebar"] {
+    background-color: #111827;
+    border-right: 1px solid #1f2937;
+}
+
+/* ======================================================
+CARDS / METRICS
+====================================================== */
 
 [data-testid="metric-container"] {
-    background-color: #111827;
+    background: linear-gradient(
+        145deg,
+        #111827,
+        #0f172a
+    );
+
     border: 1px solid #1f2937;
-    padding: 15px;
-    border-radius: 12px;
+    padding: 20px;
+    border-radius: 16px;
+
+    box-shadow:
+        0 4px 20px rgba(0,0,0,0.25);
+
+    transition: 0.3s ease;
 }
 
-.stButton>button {
+[data-testid="metric-container"]:hover {
+    transform: translateY(-2px);
+    border: 1px solid #374151;
+}
+
+/* ======================================================
+BUTTONS
+====================================================== */
+
+.stButton > button {
+
+    background: linear-gradient(
+        90deg,
+        #635bff,
+        #7c3aed
+    );
+
+    color: white;
+    border-radius: 12px;
+    border: none;
+
+    height: 3.2em;
+    width: 100%;
+
+    font-size: 15px;
+    font-weight: 600;
+
+    transition: 0.3s ease;
+}
+
+.stButton > button:hover {
+
+    background: linear-gradient(
+        90deg,
+        #5145cd,
+        #6d28d9
+    );
+
+    transform: translateY(-1px);
+}
+
+/* ======================================================
+INPUT FIELDS
+====================================================== */
+
+.stNumberInput input {
+
+    background-color: #111827 !important;
+    color: white !important;
+
+    border: 1px solid #374151 !important;
+    border-radius: 10px !important;
+}
+
+/* ======================================================
+DATAFRAMES
+====================================================== */
+
+[data-testid="stDataFrame"] {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #1f2937;
+}
+
+/* ======================================================
+TABS
+====================================================== */
+
+.stTabs [role="tab"] {
+
+    background-color: #111827;
+    color: #cbd5e1;
+
+    border-radius: 10px;
+    padding: 10px 18px;
+
+    margin-right: 8px;
+}
+
+.stTabs [aria-selected="true"] {
+
     background-color: #635bff;
     color: white;
-    border-radius: 10px;
-    border: none;
-    height: 3em;
-    width: 100%;
-    font-weight: 600;
 }
 
-.stButton>button:hover {
-    background-color: #5145cd;
-    color: white;
+/* ======================================================
+PROGRESS BAR
+====================================================== */
+
+.stProgress > div > div > div > div {
+    background-color: #635bff;
+}
+
+/* ======================================================
+HEADERS
+====================================================== */
+
+h1, h2, h3 {
+    color: #f8fafc;
+}
+
+/* ======================================================
+SUCCESS / ERROR ALERTS
+====================================================== */
+
+.stAlert {
+    border-radius: 12px;
 }
 
 </style>
