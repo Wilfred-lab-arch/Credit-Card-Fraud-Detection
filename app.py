@@ -27,7 +27,13 @@ st.set_page_config(
 st.markdown("""
 <style>
 
+body {
+    background-color: #0f172a;
+    color: #f8fafc;
+}
+
 .block-container {
+    background-color: #0f172a;
     padding-top: 2rem;
     padding-bottom: 2rem;
     padding-left: 2rem;
