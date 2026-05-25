@@ -1,5 +1,9 @@
 
 import os
+import csv
+import json
+from datetime import datetime
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -56,22 +60,106 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# LOAD MODEL
+# MODEL REGISTRY
 # =========================================================
 
+MODEL_LOG_PATH = os.path.join("models", "prediction_log.csv")
+DEFAULT_MODEL_PATH = "fraud_detection_model.pkl"
+
+def format_datetime(ts):
+    return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+
+def get_all_model_files():
+    model_files = []
+
+    if os.path.exists(DEFAULT_MODEL_PATH):
+        model_files.append(DEFAULT_MODEL_PATH)
+
+    if os.path.isdir("models"):
+        for file_name in sorted(os.listdir("models")):
+            if file_name.endswith(".pkl"):
+                path = os.path.join("models", file_name)
+                if path not in model_files:
+                    model_files.append(path)
+
+    return model_files
+
+@st.cache_data(ttl=120)
+def get_model_registry():
+    registry = []
+
+    for path in get_all_model_files():
+        try:
+            stat = os.stat(path)
+            registry.append({
+                "name": os.path.splitext(os.path.basename(path))[0],
+                "file": path,
+                "size_kb": round(stat.st_size / 1024, 1),
+                "last_updated": format_datetime(stat.st_mtime),
+            })
+        except OSError:
+            continue
+
+    return registry
+
 @st.cache_resource
-def load_model():
-
-    model_path = "fraud_detection_model.pkl"
-
+def load_model(model_path):
     if not os.path.exists(model_path):
-
         st.error(f"Model file not found: {model_path}")
         st.stop()
 
     return joblib.load(model_path)
 
-model = load_model()
+
+def ensure_log_file():
+    os.makedirs(os.path.dirname(MODEL_LOG_PATH), exist_ok=True)
+    if not os.path.exists(MODEL_LOG_PATH):
+        with open(MODEL_LOG_PATH, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                "timestamp",
+                "model_name",
+                "mode",
+                "prediction",
+                "probability",
+                "records",
+                "details"
+            ])
+
+
+def log_prediction(model_name, mode, prediction, probability, records=1, details=""):
+    ensure_log_file()
+    timestamp = datetime.now().isoformat(timespec="seconds")
+
+    with open(MODEL_LOG_PATH, "a", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            timestamp,
+            model_name,
+            mode,
+            prediction,
+            f"{probability:.5f}" if probability is not None else "",
+            records,
+            details,
+        ])
+
+
+def load_prediction_log():
+    if not os.path.exists(MODEL_LOG_PATH):
+        return pd.DataFrame(columns=["timestamp", "model_name", "mode", "prediction", "probability", "records", "details"])
+
+    return pd.read_csv(MODEL_LOG_PATH)
+
+model_registry = get_model_registry()
+selected_model_name = st.sidebar.selectbox(
+    "Select model",
+    [m["name"] for m in model_registry] if model_registry else ["fraud_detection_model"],
+)
+selected_model = next(
+    (m for m in model_registry if m["name"] == selected_model_name),
+    {"file": DEFAULT_MODEL_PATH, "name": "fraud_detection_model"},
+)
+model = load_model(selected_model["file"])
 
 # =========================================================
 # SIDEBAR
@@ -92,6 +180,7 @@ with st.sidebar:
             "Transactions",
             "Risk Engine",
             "Reports",
+            "Model Tracking",
             "About"
         ]
     )
@@ -99,6 +188,13 @@ with st.sidebar:
     st.markdown("---")
 
     st.success("System Status: Operational")
+    st.caption(f"Loaded model: {selected_model_name}")
+
+    st.markdown("---")
+    st.caption(f"Loaded model: {selected_model_name}")
+
+    if st.button("Refresh Model List"):
+        st.experimental_rerun()
 
 # =========================================================
 # OVERVIEW PAGE
@@ -260,12 +356,14 @@ elif page == "Transactions":
                         "⚠ High Risk Transaction Detected"
                     )
 
-                else:
-
-                    st.success(
-                        "✓ Transaction Approved"
-                    )
-
+                log_prediction(
+                    selected_model_name,
+                    mode="single",
+                    prediction=int(prediction),
+                    probability=float(probability) if probability is not None else None,
+                    records=1,
+                    details="Single transaction"
+                )
             except Exception as e:
 
                 st.error(f"Prediction Error: {e}")
@@ -404,6 +502,15 @@ elif page == "Transactions":
                             use_container_width=True
                         )
 
+                        log_prediction(
+                            selected_model_name,
+                            mode="batch",
+                            prediction=int(fraud_cases),
+                            probability=float(probabilities.mean()),
+                            records=int(total),
+                            details=f"Batch run: {legit_cases} legit, {fraud_cases} fraud"
+                        )
+
             except Exception as e:
 
                 st.error(f"Error: {e}")
@@ -502,6 +609,38 @@ elif page == "Reports":
         mime="text/csv",
         use_container_width=True
     )
+
+# =========================================================
+# MODEL TRACKING PAGE
+# =========================================================
+
+elif page == "Model Tracking":
+
+    st.title("Model Tracking")
+    st.caption("View available models and prediction usage logs")
+
+    registry_df = pd.DataFrame(model_registry)
+    st.subheader("Registered Models")
+    st.dataframe(registry_df, use_container_width=True)
+
+    log_df = load_prediction_log()
+    st.subheader("Prediction Log")
+
+    if log_df.empty:
+        st.info("No prediction usage has been logged yet.")
+    else:
+        st.metric("Total Logged Entries", len(log_df))
+        st.write(log_df.tail(20))
+
+    if not log_df.empty:
+        logs_by_model = log_df.groupby("model_name").size().reset_index(name="runs")
+        st.subheader("Runs by Model")
+        st.dataframe(logs_by_model, use_container_width=True)
+
+    if st.button("Clear Tracking Log"):
+        if os.path.exists(MODEL_LOG_PATH):
+            os.remove(MODEL_LOG_PATH)
+        st.success("Prediction log cleared. Refresh the page.")
 
 # =========================================================
 # ABOUT PAGE

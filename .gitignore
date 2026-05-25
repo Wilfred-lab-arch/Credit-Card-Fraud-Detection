@@ -1,0 +1,23 @@
+# Ignore dataset folders and files
+Data/
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment directories
+.venv/
+venv/
+ENV/
+env/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Streamlit settings
+.streamlit/
+
+# Logs and runtime files
+*.log
+*.sqlite3
