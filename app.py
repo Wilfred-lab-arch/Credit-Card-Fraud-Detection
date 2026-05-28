@@ -1,4 +1,4 @@
-
+﻿
 import os
 import streamlit as st
 import pandas as pd
@@ -303,7 +303,7 @@ elif page == "Transactions":
 
                 required_columns = [
                     f"V{i}" for i in range(1, 29)
-                ] + ["Amount"]
+                ] + ["scaled_amount"]
 
                 missing = [
                     col for col in required_columns
