@@ -1,11 +1,11 @@
-﻿
+
+
 import os
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
 import plotly.express as px
-from sklearn.preprocessing import StandardScaler
 
 # =========================================================
 # PAGE CONFIG
@@ -140,7 +140,7 @@ if uploaded_dataset is not None:
 
         required_columns = (
             [f"V{i}" for i in range(1, 29)]
-            + ["Amount", "Class"]
+            + ["scaled_amount", "Class"]
         )
 
         missing_columns = [
@@ -157,14 +157,10 @@ if uploaded_dataset is not None:
 
             st.stop()
 
-        # SCALE AMOUNT
-        scaler = StandardScaler()
-
-        df["scaled_amount"] = scaler.fit_transform(
-            df[["Amount"]]
-        )
-
+        # =================================================
         # METRICS
+        # =================================================
+
         fraud_count = (
             df["Class"] == 1
         ).sum()
@@ -239,7 +235,7 @@ if page == "Overview":
         ]
     })
 
-    transaction_data = df[["Amount"]]
+    transaction_data = df[["scaled_amount"]]
 
     left, right = st.columns(2)
 
@@ -261,11 +257,13 @@ if page == "Overview":
 
     with right:
 
-        st.subheader("Transaction Amount Distribution")
+        st.subheader(
+            "Scaled Amount Distribution"
+        )
 
         hist_fig = px.histogram(
             transaction_data,
-            x="Amount",
+            x="scaled_amount",
             nbins=50
         )
 
@@ -326,19 +324,12 @@ elif page == "Transactions":
 
                 input_data.append(value)
 
-        amount = st.number_input(
-            "Transaction Amount",
-            min_value=0.0,
-            value=100.0,
-            step=1.0
+        scaled_amount = st.number_input(
+            "scaled_amount",
+            value=0.0000,
+            step=0.0001,
+            format="%.4f"
         )
-
-        # SCALE INPUT AMOUNT
-        scaler = StandardScaler()
-
-        scaled_amount = scaler.fit_transform(
-            [[amount]]
-        )[0][0]
 
         input_data.append(scaled_amount)
 
@@ -439,7 +430,7 @@ elif page == "Transactions":
 
         st.info("""
 Required Columns:
-V1 ... V28 + Amount
+V1 → V28 + scaled_amount
 """)
 
         if uploaded_file is not None:
@@ -452,7 +443,7 @@ V1 ... V28 + Amount
 
                 required_batch_columns = (
                     [f"V{i}" for i in range(1, 29)]
-                    + ["Amount"]
+                    + ["scaled_amount"]
                 )
 
                 missing_columns = [
@@ -469,14 +460,6 @@ V1 ... V28 + Amount
                     )
 
                 else:
-
-                    scaler = StandardScaler()
-
-                    batch_df["scaled_amount"] = (
-                        scaler.fit_transform(
-                            batch_df[["Amount"]]
-                        )
-                    )
 
                     st.dataframe(
                         batch_df.head(),
@@ -619,13 +602,13 @@ elif page == "Risk Engine":
     with c1:
 
         st.subheader(
-            "Transaction Amount Distribution"
+            "Scaled Amount Distribution"
         )
 
         fig1 = px.box(
             analytics_df,
             x="Class",
-            y="Amount",
+            y="scaled_amount",
             color="Class"
         )
 
@@ -642,7 +625,7 @@ elif page == "Risk Engine":
 
         fig2 = px.histogram(
             analytics_df,
-            x="Amount",
+            x="scaled_amount",
             color="Class",
             nbins=50
         )
@@ -676,28 +659,36 @@ elif page == "Reports":
         min(20, len(df))
     ).copy()
 
-    report_df["Decision"] = (
-        report_df["Class"].map({
-            0: "LEGIT",
-            1: "FRAUD"
-        })
+    X_report = report_df[
+        FEATURE_COLUMNS
+    ]
+
+    report_probabilities = (
+        model.predict_proba(
+            X_report
+        )[:, 1]
     )
 
-    report_df["Fraud_Score"] = (
-        np.round(
-            np.random.uniform(
-                0.01,
-                0.99,
-                len(report_df)
-            ),
-            2
+    report_predictions = (
+        model.predict(
+            X_report
         )
+    )
+
+    report_df["Fraud_Score"] = np.round(
+        report_probabilities,
+        4
+    )
+
+    report_df["Decision"] = np.where(
+        report_predictions == 1,
+        "FRAUD",
+        "LEGIT"
     )
 
     report_df = report_df[
         [
-            "Time",
-            "Amount",
+            "scaled_amount",
             "Decision",
             "Fraud_Score"
         ]
@@ -758,7 +749,7 @@ card transactions in real time.
 Dataset must contain:
 
 - V1 → V28
-- Amount
+- scaled_amount
 - Class
 """)
 
