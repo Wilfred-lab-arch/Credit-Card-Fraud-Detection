@@ -1,6 +1,4 @@
-
-
-import os
+﻿import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -138,6 +136,25 @@ if uploaded_dataset is not None:
 
         df = pd.read_csv(uploaded_dataset)
 
+        if df.empty:
+
+            st.error(
+                "Uploaded dataset is empty."
+            )
+
+            st.stop()
+
+        MAX_ROWS = 200000
+
+        if len(df) > MAX_ROWS:
+
+            st.warning(
+                f"Dataset too large. "
+                f"Only first {MAX_ROWS:,} rows loaded."
+            )
+
+            df = df.head(MAX_ROWS)
+
         required_columns = (
             [f"V{i}" for i in range(1, 29)]
             + ["scaled_amount", "Class"]
@@ -156,10 +173,6 @@ if uploaded_dataset is not None:
             )
 
             st.stop()
-
-        # =================================================
-        # METRICS
-        # =================================================
 
         fraud_count = (
             df["Class"] == 1
@@ -264,7 +277,7 @@ if page == "Overview":
         hist_fig = px.histogram(
             transaction_data,
             x="scaled_amount",
-            nbins=50
+            nbins=min(50, len(df))
         )
 
         st.plotly_chart(
@@ -278,6 +291,13 @@ if page == "Overview":
 
     st.dataframe(
         df.head(20),
+        use_container_width=True
+    )
+
+    st.subheader("Dataset Statistics")
+
+    st.dataframe(
+        df.describe(),
         use_container_width=True
     )
 
@@ -336,6 +356,16 @@ elif page == "Transactions":
         if st.button("Run Fraud Analysis"):
 
             try:
+
+                if len(input_data) != len(
+                    FEATURE_COLUMNS
+                ):
+
+                    st.error(
+                        "Feature count mismatch."
+                    )
+
+                    st.stop()
 
                 data = pd.DataFrame(
                     [input_data],
@@ -396,17 +426,22 @@ elif page == "Transactions":
                     float(probability)
                 )
 
-                if prediction == 1:
+                if probability >= 0.7:
 
                     st.error(
-                        "⚠ High Risk "
-                        "Transaction Detected"
+                        "⚠ HIGH RISK TRANSACTION"
+                    )
+
+                elif probability >= 0.3:
+
+                    st.warning(
+                        "⚠ MEDIUM RISK TRANSACTION"
                     )
 
                 else:
 
                     st.success(
-                        "✓ Transaction Approved"
+                        "✓ LOW RISK TRANSACTION"
                     )
 
             except Exception as e:
@@ -480,11 +515,22 @@ V1 → V28 + scaled_amount
                             )
                         )
 
-                        probabilities = (
-                            model.predict_proba(
-                                X_batch
-                            )[:, 1]
-                        )
+                        if hasattr(
+                            model,
+                            "predict_proba"
+                        ):
+
+                            probabilities = (
+                                model.predict_proba(
+                                    X_batch
+                                )[:, 1]
+                            )
+
+                        else:
+
+                            probabilities = np.zeros(
+                                len(X_batch)
+                            )
 
                         batch_df["Prediction"] = (
                             np.where(
@@ -627,7 +673,7 @@ elif page == "Risk Engine":
             analytics_df,
             x="scaled_amount",
             color="Class",
-            nbins=50
+            nbins=min(50, len(df))
         )
 
         st.plotly_chart(
@@ -663,17 +709,28 @@ elif page == "Reports":
         FEATURE_COLUMNS
     ]
 
-    report_probabilities = (
-        model.predict_proba(
-            X_report
-        )[:, 1]
-    )
-
     report_predictions = (
         model.predict(
             X_report
         )
     )
+
+    if hasattr(
+        model,
+        "predict_proba"
+    ):
+
+        report_probabilities = (
+            model.predict_proba(
+                X_report
+            )[:, 1]
+        )
+
+    else:
+
+        report_probabilities = np.zeros(
+            len(X_report)
+        )
 
     report_df["Fraud_Score"] = np.round(
         report_probabilities,
@@ -684,6 +741,26 @@ elif page == "Reports":
         report_predictions == 1,
         "FRAUD",
         "LEGIT"
+    )
+
+    fraud_total = (
+        report_df["Decision"] == "FRAUD"
+    ).sum()
+
+    legit_total = (
+        report_df["Decision"] == "LEGIT"
+    ).sum()
+
+    c1, c2 = st.columns(2)
+
+    c1.metric(
+        "Fraud Predictions",
+        fraud_total
+    )
+
+    c2.metric(
+        "Legitimate Predictions",
+        legit_total
     )
 
     report_df = report_df[
@@ -743,13 +820,22 @@ card transactions in real time.
 - Risk scoring
 - Exportable reports
 - Interactive dashboard
+""")
 
-### Supported Dataset Format
+    st.subheader("Loaded Model")
 
+    st.code(
+        type(model).__name__
+    )
+
+    st.subheader(
+        "Supported Dataset Format"
+    )
+
+    st.markdown("""
 Dataset must contain:
 
 - V1 → V28
 - scaled_amount
 - Class
 """)
-
