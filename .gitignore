@@ -15,8 +15,12 @@ env/
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
 
-# Streamlit settings
-.streamlit/
+# Ignore hidden files
+.*
+
+# Allow Streamlit config
+!.streamlit/
+!.streamlit/config.toml
 
 # Logs and runtime files
 *.log
