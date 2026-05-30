@@ -1,4 +1,3 @@
-
 import os
 import joblib
 import streamlit as st
@@ -53,36 +52,24 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# FEATURES
-# =====================================================
-
-FEATURE_COLUMNS = [
-    f"V{i}" for i in range(1, 29)
-] + ["scaled_amount"]
-
-# =====================================================
-# LOAD MODEL
+# LOAD MODEL PIPELINE
 # =====================================================
 
 @st.cache_resource
 def load_artifacts():
+    pipeline = joblib.load("fraud_pipeline.pkl")
 
-    model = joblib.load(
-        "fraud_detection_model.pkl"
-    )
+    model = pipeline["model"]
+    scaler = pipeline["scaler"]
+    features = pipeline["features"]
 
-    scaler = joblib.load(
-        "scaler.pkl"
-    )
+    return model, scaler, features
 
-    return model, scaler
 
 try:
-    model, scaler = load_artifacts()
-except:
-    st.error(
-        "fraud_detection_model.pkl or scaler.pkl not found."
-    )
+    model, scaler, FEATURE_COLUMNS = load_artifacts()
+except Exception as e:
+    st.error(f"Failed to load model pipeline: {e}")
     st.stop()
 
 # =====================================================
@@ -92,10 +79,7 @@ except:
 with st.sidebar:
 
     st.title("💳 Radar")
-
-    st.caption(
-        "Fraud Intelligence Platform"
-    )
+    st.caption("Fraud Intelligence Platform")
 
     st.success("🟢 Operational")
 
@@ -127,15 +111,9 @@ with st.sidebar:
 df = None
 
 if uploaded_dataset is not None:
-
     try:
-
-        df = pd.read_csv(
-            uploaded_dataset
-        )
-
+        df = pd.read_csv(uploaded_dataset)
     except Exception as e:
-
         st.error(str(e))
 
 # =====================================================
@@ -144,69 +122,33 @@ if uploaded_dataset is not None:
 
 if page == "Dashboard":
 
-    st.title(
-        "💳 Radar Fraud Intelligence"
-    )
-
-    st.caption(
-        "Real-time Fraud Monitoring"
-    )
+    st.title("💳 Radar Fraud Intelligence")
+    st.caption("Real-time Fraud Monitoring")
 
     if df is None:
-
-        st.info(
-            "Upload a dataset to view analytics."
-        )
+        st.info("Upload a dataset to view analytics.")
 
     else:
-
-        fraud_count = (
-            df["Class"] == 1
-        ).sum()
-
-        legit_count = (
-            df["Class"] == 0
-        ).sum()
-
+        fraud_count = (df["Class"] == 1).sum()
+        legit_count = (df["Class"] == 0).sum()
         total = len(df)
-
-        fraud_rate = (
-            fraud_count / total
-        ) * 100
+        fraud_rate = (fraud_count / total) * 100
 
         c1, c2, c3, c4 = st.columns(4)
 
-        c1.metric(
-            "Transactions",
-            f"{total:,}"
-        )
-
-        c2.metric(
-            "Fraud Cases",
-            fraud_count
-        )
-
-        c3.metric(
-            "Fraud Rate",
-            f"{fraud_rate:.4f}%"
-        )
-
-        c4.metric(
-            "Legitimate",
-            legit_count
-        )
+        c1.metric("Transactions", f"{total:,}")
+        c2.metric("Fraud Cases", fraud_count)
+        c3.metric("Fraud Rate", f"{fraud_rate:.4f}%")
+        c4.metric("Legitimate", legit_count)
 
         st.markdown("---")
 
         col1, col2 = st.columns(2)
 
         with col1:
-
             fraud_df = pd.DataFrame({
-                "Type":
-                    ["Legitimate", "Fraud"],
-                "Count":
-                    [legit_count, fraud_count]
+                "Type": ["Legitimate", "Fraud"],
+                "Count": [legit_count, fraud_count]
             })
 
             fig = px.pie(
@@ -216,22 +158,11 @@ if page == "Dashboard":
                 hole=0.65
             )
 
-            st.plotly_chart(
-                fig,
-                use_container_width=True
-            )
+            st.plotly_chart(fig, use_container_width=True)
 
         with col2:
-
-            fig = px.histogram(
-                df,
-                x="scaled_amount"
-            )
-
-            st.plotly_chart(
-                fig,
-                use_container_width=True
-            )
+            fig = px.histogram(df, x="scaled_amount")
+            st.plotly_chart(fig, use_container_width=True)
 
 # =====================================================
 # SINGLE PREDICTION
@@ -239,33 +170,23 @@ if page == "Dashboard":
 
 elif page == "Single Prediction":
 
-    st.title(
-        "🔍 Transaction Inspector"
-    )
-
-    st.subheader(
-        "Single Fraud Prediction"
-    )
+    st.title("🔍 Transaction Inspector")
+    st.subheader("Single Fraud Prediction")
 
     values = []
 
-    with st.expander(
-        "Enter Transaction Features",
-        expanded=True
-    ):
+    with st.expander("Enter Transaction Features", expanded=True):
 
         cols = st.columns(3)
 
         for i in range(1, 29):
 
             with cols[(i - 1) % 3]:
-
                 v = st.number_input(
                     f"V{i}",
                     value=0.0,
                     format="%.4f"
                 )
-
                 values.append(v)
 
         amount = st.number_input(
@@ -274,30 +195,22 @@ elif page == "Single Prediction":
             value=100.0
         )
 
-    if st.button(
-        "Run Fraud Analysis"
-    ):
+    if st.button("Run Fraud Analysis"):
 
-        scaled_amount = scaler.transform(
-            [[amount]]
-        )[0][0]
+        scaled_amount = scaler.transform([[amount]])[0][0]
 
-        values.append(
-            scaled_amount
-        )
+        # Build safe feature mapping
+        input_dict = {}
 
-        input_df = pd.DataFrame(
-            [values],
-            columns=FEATURE_COLUMNS
-        )
+        for i in range(1, 29):
+            input_dict[f"V{i}"] = values[i - 1]
 
-        prediction = model.predict(
-            input_df
-        )[0]
+        input_dict["scaled_amount"] = scaled_amount
 
-        probability = model.predict_proba(
-            input_df
-        )[0][1]
+        input_df = pd.DataFrame([input_dict])[FEATURE_COLUMNS]
+
+        prediction = model.predict(input_df)[0]
+        probability = model.predict_proba(input_df)[0][1]
 
         st.markdown("---")
 
@@ -305,34 +218,17 @@ elif page == "Single Prediction":
             go.Indicator(
                 mode="gauge+number",
                 value=probability * 100,
-                title={
-                    "text": "Fraud Risk"
-                },
-                gauge={
-                    "axis": {
-                        "range":
-                        [0, 100]
-                    }
-                }
+                title={"text": "Fraud Risk"},
+                gauge={"axis": {"range": [0, 100]}}
             )
         )
 
-        st.plotly_chart(
-            gauge,
-            use_container_width=True
-        )
+        st.plotly_chart(gauge, use_container_width=True)
 
         if prediction == 1:
-
-            st.error(
-                "🚨 Fraudulent Transaction Detected"
-            )
-
+            st.error("🚨 Fraudulent Transaction Detected")
         else:
-
-            st.success(
-                "✅ Transaction Approved"
-            )
+            st.success("✅ Transaction Approved")
 
 # =====================================================
 # BATCH PREDICTION
@@ -340,78 +236,50 @@ elif page == "Single Prediction":
 
 elif page == "Batch Prediction":
 
-    st.title(
-        "📂 Batch Fraud Detection"
-    )
+    st.title("📂 Batch Fraud Detection")
 
-    file = st.file_uploader(
-        "Upload CSV",
-        type=["csv"]
-    )
+    file = st.file_uploader("Upload CSV", type=["csv"])
 
     if file is not None:
 
-        batch_df = pd.read_csv(
-            file
-        )
+        batch_df = pd.read_csv(file)
+        st.dataframe(batch_df.head())
 
-        st.dataframe(
-            batch_df.head()
-        )
-
-        if st.button(
-            "Run Batch Prediction"
-        ):
-
-            required = FEATURE_COLUMNS
+        if st.button("Run Batch Prediction"):
 
             missing = [
-                c for c in required
+                c for c in FEATURE_COLUMNS
                 if c not in batch_df.columns
             ]
 
             if missing:
+                st.error(f"Missing columns: {missing}")
+                st.stop()
 
-                st.error(
-                    f"Missing columns: {missing}"
-                )
+            X = batch_df[FEATURE_COLUMNS]
 
-            else:
+            pred = model.predict(X)
+            prob = model.predict_proba(X)[:, 1]
 
-                X = batch_df[
-                    FEATURE_COLUMNS
-                ]
+            batch_df["Prediction"] = np.where(
+                pred == 1,
+                "FRAUD",
+                "LEGIT"
+            )
 
-                pred = model.predict(X)
+            batch_df["Fraud_Probability"] = prob
 
-                prob = model.predict_proba(X)[:,1]
+            st.success("Analysis Complete")
+            st.dataframe(batch_df.head(50))
 
-                batch_df["Prediction"] = np.where(
-                    pred == 1,
-                    "FRAUD",
-                    "LEGIT"
-                )
+            csv = batch_df.to_csv(index=False)
 
-                batch_df["Fraud_Probability"] = prob
-
-                st.success(
-                    "Analysis Complete"
-                )
-
-                st.dataframe(
-                    batch_df.head(50)
-                )
-
-                csv = batch_df.to_csv(
-                    index=False
-                )
-
-                st.download_button(
-                    "Download Results",
-                    csv,
-                    "fraud_predictions.csv",
-                    "text/csv"
-                )
+            st.download_button(
+                "Download Results",
+                csv,
+                "fraud_predictions.csv",
+                "text/csv"
+            )
 
 # =====================================================
 # ANALYTICS
@@ -419,27 +287,18 @@ elif page == "Batch Prediction":
 
 elif page == "Analytics":
 
-    st.title(
-        "📊 Fraud Analytics"
-    )
+    st.title("📊 Fraud Analytics")
 
     if df is None:
-
-        st.warning(
-            "Upload dataset first."
-        )
+        st.warning("Upload dataset first.")
 
     else:
-
         analytics_df = df.copy()
 
-        analytics_df["Class"] = (
-            analytics_df["Class"]
-            .map({
-                0:"Legitimate",
-                1:"Fraud"
-            })
-        )
+        analytics_df["Class"] = analytics_df["Class"].map({
+            0: "Legitimate",
+            1: "Fraud"
+        })
 
         fig1 = px.box(
             analytics_df,
@@ -448,10 +307,7 @@ elif page == "Analytics":
             color="Class"
         )
 
-        st.plotly_chart(
-            fig1,
-            use_container_width=True
-        )
+        st.plotly_chart(fig1, use_container_width=True)
 
         fig2 = px.histogram(
             analytics_df,
@@ -459,10 +315,7 @@ elif page == "Analytics":
             color="Class"
         )
 
-        st.plotly_chart(
-            fig2,
-            use_container_width=True
-        )
+        st.plotly_chart(fig2, use_container_width=True)
 
 # =====================================================
 # REPORTS
@@ -470,29 +323,27 @@ elif page == "Analytics":
 
 elif page == "Reports":
 
-    st.title(
-        "📄 Reports"
-    )
+    st.title("📄 Reports")
 
     if df is None:
-
-        st.warning(
-            "Upload dataset first."
-        )
+        st.warning("Upload dataset first.")
 
     else:
+        sample = df.sample(min(50, len(df)))
 
-        sample = df.sample(
-            min(50, len(df))
-        )
-
-        X = sample[
-            FEATURE_COLUMNS
+        missing = [
+            c for c in FEATURE_COLUMNS
+            if c not in sample.columns
         ]
 
-        pred = model.predict(X)
+        if missing:
+            st.error(f"Missing columns: {missing}")
+            st.stop()
 
-        prob = model.predict_proba(X)[:,1]
+        X = sample[FEATURE_COLUMNS]
+
+        pred = model.predict(X)
+        prob = model.predict_proba(X)[:, 1]
 
         sample["Decision"] = np.where(
             pred == 1,
@@ -502,13 +353,9 @@ elif page == "Reports":
 
         sample["Fraud_Score"] = prob
 
-        st.dataframe(
-            sample
-        )
+        st.dataframe(sample)
 
-        csv = sample.to_csv(
-            index=False
-        )
+        csv = sample.to_csv(index=False)
 
         st.download_button(
             "Export Report",
@@ -529,7 +376,6 @@ elif page == "About":
 ### Radar Fraud Intelligence Platform
 
 Features:
-
 - Real-time fraud prediction
 - Batch transaction screening
 - Risk scoring
@@ -538,7 +384,6 @@ Features:
 - Machine Learning powered
 
 ### Technology Stack
-
 - Python
 - Streamlit
 - Scikit-Learn
@@ -547,11 +392,5 @@ Features:
 - Joblib
 """)
 
-    st.subheader(
-        "Loaded Model"
-    )
-
-    st.code(
-        type(model).__name__
-    )  
-  
+    st.subheader("Loaded Model Type")
+    st.code(type(model).__name__)
