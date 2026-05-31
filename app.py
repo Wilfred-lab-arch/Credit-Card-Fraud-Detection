@@ -161,6 +161,7 @@ if page == "Dashboard":
             st.plotly_chart(fig, use_container_width=True)
 
         with col2:
+            st.write(df.columns.tolist())
             fig = px.histogram(df, x="scaled_amount")
             st.plotly_chart(fig, use_container_width=True)
 
@@ -300,22 +301,30 @@ elif page == "Analytics":
             1: "Fraud"
         })
 
-        fig1 = px.box(
-            analytics_df,
-            x="Class",
-            y="scaled_amount",
-            color="Class"
-        )
+        metric_col = None
 
-        st.plotly_chart(fig1, use_container_width=True)
+        if "scaled_amount" in analytics_df.columns:
+            metric_col = "scaled_amount"
+        elif "Amount" in analytics_df.columns:
+            metric_col = "Amount"
 
-        fig2 = px.histogram(
-            analytics_df,
-            x="scaled_amount",
-            color="Class"
-        )
+        if metric_col is None:
+            st.error("Neither 'Amount' nor 'scaled_amount' exists in the dataset.")
+        else:
+            fig1 = px.box(
+                analytics_df,
+                x="Class",
+                y=metric_col,
+                color="Class"
+            )
+            st.plotly_chart(fig1, use_container_width=True)
 
-        st.plotly_chart(fig2, use_container_width=True)
+            fig2 = px.histogram(
+                analytics_df,
+                x=metric_col,
+                color="Class"
+            )
+            st.plotly_chart(fig2, use_container_width=True)
 
 # =====================================================
 # REPORTS
