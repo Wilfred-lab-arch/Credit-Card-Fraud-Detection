@@ -69,32 +69,38 @@ if uploaded_file is not None:
     try:
         df = pd.read_csv(uploaded_file)
 
-        if "Amount" not in df.columns:
-            st.error("Amount column not found.")
+        # 1. Handle Raw Data (Contains 'Amount')
+        if "Amount" in df.columns:
+            df["Amount"] = pd.to_numeric(
+                df["Amount"],        
+                errors="coerce"
+            )
+
+            median_amount = float(df["Amount"].median())
+            df["Amount"] = df["Amount"].fillna(median_amount)
+
+            # High-speed NumPy scaling setup
+            raw_amounts = df["Amount"].values.reshape(-1, 1)
+            df["scaled_amount"] = scaler.transform(raw_amounts)[:, 0]
+
+            # Drop original columns cleanly
+            df.drop(
+                columns=["Amount", "Time"],
+                inplace=True,
+                errors="ignore"
+            )
+            st.success("✅ Raw dataset loaded and scaled successfully!")
+
+        # 2. Handle Pre-Cleaned/Balanced Data (Contains 'scaled_amount' or 'Scaled_Amount')
+        elif "scaled_amount" in df.columns or "Scaled_Amount" in df.columns:
+            if "Scaled_Amount" in df.columns:
+                df.rename(columns={"Scaled_Amount": "scaled_amount"}, inplace=True)
+            st.success("✅ Pre-cleaned dataset loaded successfully!")
+
+        # 3. Fail-safe if neither exists
+        else:
+            st.error("❌ Missing Data Structure: Neither 'Amount' nor 'scaled_amount' column was found in this file.")
             st.stop()
-
-        df["Amount"] = pd.to_numeric(
-            df["Amount"],
-            errors="coerce"
-        )
-
-        df["Amount"] = df["Amount"].fillna(
-            df["Amount"].median()
-        )
-
-        # Apply same scaling used during training
-        df["scaled_amount"] = scaler.transform(
-            df[["Amount"]]
-        )[:, 0]
-
-        # Drop original Amount and Time
-        df.drop(
-            columns=["Amount", "Time"],
-            inplace=True,
-            errors="ignore"
-        )
-
-        st.success("Dataset loaded successfully")
 
     except Exception as e:
         st.error(f"Dataset error: {e}")
@@ -472,11 +478,5 @@ elif page == "ℹ️ About":
     - Amount removed
     - Time removed
     """)
-
-
-
-
-
-
 
 
