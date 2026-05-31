@@ -1,405 +1,404 @@
-import os
-import joblib
+
 import streamlit as st
 import pandas as pd
 import numpy as np
+import joblib
 import plotly.express as px
 import plotly.graph_objects as go
 
-# =====================================================
+# ==========================================
 # PAGE CONFIG
-# =====================================================
-
+# ==========================================
 st.set_page_config(
-    page_title="Radar Fraud Intelligence",
-    page_icon="💳",
+    page_title="Fraud Detection Intelligence",
+    page_icon="🛡️",
     layout="wide"
 )
 
-# =====================================================
-# CUSTOM CSS
-# =====================================================
-
-st.markdown("""
-<style>
-
-.main {
-    background-color: #0f172a;
-}
-
-[data-testid="metric-container"] {
-    background-color: #111827;
-    border: 1px solid #1f2937;
-    padding: 15px;
-    border-radius: 12px;
-}
-
-.stButton > button {
-    background-color: #635bff;
-    color: white;
-    border-radius: 10px;
-    border: none;
-    height: 3em;
-    width: 100%;
-    font-weight: 600;
-}
-
-.stButton > button:hover {
-    background-color: #5145cd;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# =====================================================
-# LOAD MODEL PIPELINE
-# =====================================================
-
+# ==========================================
+# LOAD MODEL
+# ==========================================
 @st.cache_resource
 def load_artifacts():
-    pipeline = joblib.load("fraud_pipeline.pkl")
+    try:
+        pipeline = joblib.load("fraud_pipeline.pkl")
 
-    model = pipeline["model"]
-    scaler = pipeline["scaler"]
-    features = pipeline["features"]
+        model = pipeline["model"]
+        scaler = pipeline["scaler"]
+        features = pipeline["features"]
 
-    return model, scaler, features
+        return model, scaler, features
 
+    except Exception as e:
+        st.error(f"Failed to load model: {e}")
+        st.stop()
 
-try:
-    model, scaler, FEATURE_COLUMNS = load_artifacts()
-except Exception as e:
-    st.error(f"Failed to load model pipeline: {e}")
-    st.stop()
+model, scaler, FEATURE_COLUMNS = load_artifacts()
 
-# =====================================================
+# ==========================================
 # SIDEBAR
-# =====================================================
-
+# ==========================================
 with st.sidebar:
 
-    st.title("💳 Radar")
-    st.caption("Fraud Intelligence Platform")
-
-    st.success("🟢 Operational")
-
-    st.markdown("---")
+    st.title("🛡️ Fraud Radar")
 
     page = st.radio(
         "Navigation",
         [
-            "Dashboard",
-            "Single Prediction",
-            "Batch Prediction",
-            "Analytics",
-            "Reports",
-            "About"
+            "📊 Dashboard",
+            "💳 Transaction Analyzer",
+            "⚡ Risk Engine",
+            "📈 Analytics",
+            "📄 Reports",
+            "ℹ️ About"
         ]
     )
 
-    st.markdown("---")
-
-    uploaded_dataset = st.file_uploader(
-        "Upload Dataset",
+    uploaded_file = st.file_uploader(
+        "Upload CSV Dataset",
         type=["csv"]
     )
 
-# =====================================================
+# ==========================================
 # LOAD DATASET
-# =====================================================
-
+# ==========================================
 df = None
 
-if uploaded_dataset is not None:
+if uploaded_file is not None:
+
     try:
-        df = pd.read_csv(uploaded_dataset)
+        df = pd.read_csv(uploaded_file)
+
+        if "Amount" not in df.columns:
+            st.error("Amount column not found.")
+            st.stop()
+
+        df["Amount"] = pd.to_numeric(
+            df["Amount"],
+            errors="coerce"
+        )
+
+        df["Amount"] = df["Amount"].fillna(
+            df["Amount"].median()
+        )
+
+        # Apply same scaling used during training
+        df["scaled_amount"] = scaler.transform(
+            df[["Amount"]]
+        )[:, 0]
+
+        # Drop original Amount and Time
+        df.drop(
+            columns=["Amount", "Time"],
+            inplace=True,
+            errors="ignore"
+        )
+
+        st.success("Dataset loaded successfully")
+
     except Exception as e:
-        st.error(str(e))
+        st.error(f"Dataset error: {e}")
 
-# =====================================================
+# ==========================================
 # DASHBOARD
-# =====================================================
+# ==========================================
+if page == "📊 Dashboard":
 
-if page == "Dashboard":
-
-    st.title("💳 Radar Fraud Intelligence")
-    st.caption("Real-time Fraud Monitoring")
+    st.title("📊 Fraud Detection Dashboard")
 
     if df is None:
-        st.info("Upload a dataset to view analytics.")
-
+        st.info("Upload a dataset to begin.")
     else:
-        fraud_count = (df["Class"] == 1).sum()
-        legit_count = (df["Class"] == 0).sum()
-        total = len(df)
-        fraud_rate = (fraud_count / total) * 100
 
-        c1, c2, c3, c4 = st.columns(4)
+        if "Class" in df.columns:
 
-        c1.metric("Transactions", f"{total:,}")
-        c2.metric("Fraud Cases", fraud_count)
-        c3.metric("Fraud Rate", f"{fraud_rate:.4f}%")
-        c4.metric("Legitimate", legit_count)
+            fraud = (df["Class"] == 1).sum()
+            legit = (df["Class"] == 0).sum()
+            total = len(df)
 
-        st.markdown("---")
+            c1, c2, c3, c4 = st.columns(4)
 
-        col1, col2 = st.columns(2)
-
-        with col1:
-            fraud_df = pd.DataFrame({
-                "Type": ["Legitimate", "Fraud"],
-                "Count": [legit_count, fraud_count]
-            })
-
-            fig = px.pie(
-                fraud_df,
-                names="Type",
-                values="Count",
-                hole=0.65
+            c1.metric("Total Transactions", total)
+            c2.metric("Fraud Cases", fraud)
+            c3.metric("Legitimate", legit)
+            c4.metric(
+                "Fraud Rate",
+                f"{(fraud/total)*100:.2f}%"
             )
 
-            st.plotly_chart(fig, use_container_width=True)
+            fig = px.pie(
+                names=["Legitimate", "Fraud"],
+                values=[legit, fraud],
+                hole=0.65,
+                title="Fraud Distribution"
+            )
 
-        with col2:
-            st.write(df.columns.tolist())
-            fig = px.histogram(df, x="scaled_amount")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(
+                fig,
+                use_container_width=True
+            )
 
-# =====================================================
-# SINGLE PREDICTION
-# =====================================================
+        else:
+            st.warning(
+                "Class column not found. Dashboard metrics unavailable."
+            )
 
-elif page == "Single Prediction":
+# ==========================================
+# TRANSACTION ANALYZER
+# ==========================================
+elif page == "💳 Transaction Analyzer":
 
-    st.title("🔍 Transaction Inspector")
-    st.subheader("Single Fraud Prediction")
+    st.title("💳 Transaction Analysis")
 
-    values = []
+    single_tab, batch_tab = st.tabs(
+        ["Single Transaction", "Batch Prediction"]
+    )
 
-    with st.expander("Enter Transaction Features", expanded=True):
+    with single_tab:
+
+        st.subheader("Single Transaction Analysis")
 
         cols = st.columns(3)
+        values = []
 
         for i in range(1, 29):
-
             with cols[(i - 1) % 3]:
-                v = st.number_input(
-                    f"V{i}",
-                    value=0.0,
-                    format="%.4f"
+                values.append(
+                    st.number_input(
+                        f"V{i}",
+                        value=0.0,
+                        format="%.6f",
+                        key=f"single_v{i}"
+                    )
                 )
-                values.append(v)
 
         amount = st.number_input(
             "Transaction Amount",
             min_value=0.0,
-            value=100.0
+            value=100.0,
+            key="single_amount"
         )
 
-    if st.button("Run Fraud Analysis"):
+        if st.button("Predict Transaction"):
 
-        scaled_amount = scaler.transform([[amount]])[0][0]
+            scaled_amount = scaler.transform(
+                pd.DataFrame([[amount]], columns=["Amount"])
+            )[0][0]
 
-        # Build safe feature mapping
-        input_dict = {}
+            input_data = {
+                f"V{i}": values[i - 1]
+                for i in range(1, 29)
+            }
 
-        for i in range(1, 29):
-            input_dict[f"V{i}"] = values[i - 1]
+            input_data["scaled_amount"] = scaled_amount
 
-        input_dict["scaled_amount"] = scaled_amount
+            input_df = pd.DataFrame([input_data])
+            input_df = input_df[FEATURE_COLUMNS]
 
-        input_df = pd.DataFrame([input_dict])[FEATURE_COLUMNS]
+            prediction = model.predict(input_df)[0]
+            probability = model.predict_proba(input_df)[0][1]
 
-        prediction = model.predict(input_df)[0]
-        probability = model.predict_proba(input_df)[0][1]
+            risk_score = probability * 100
 
-        st.markdown("---")
+            st.metric("Fraud Probability", f"{risk_score:.2f}%")
 
-        gauge = go.Figure(
-            go.Indicator(
-                mode="gauge+number",
-                value=probability * 100,
-                title={"text": "Fraud Risk"},
-                gauge={"axis": {"range": [0, 100]}}
-            )
+            if prediction == 1:
+                st.error("🚨 Fraudulent Transaction")
+            else:
+                st.success("✅ Legitimate Transaction")
+
+    with batch_tab:
+
+        st.subheader("Batch Fraud Detection")
+
+        batch_file = st.file_uploader(
+            "Upload CSV File",
+            type=["csv"],
+            key="batch_upload"
         )
 
-        st.plotly_chart(gauge, use_container_width=True)
+        if batch_file is not None:
 
-        if prediction == 1:
-            st.error("🚨 Fraudulent Transaction Detected")
-        else:
-            st.success("✅ Transaction Approved")
+            batch_df = pd.read_csv(batch_file)
 
-# =====================================================
-# BATCH PREDICTION
-# =====================================================
+            st.write("Preview")
+            st.dataframe(batch_df.head(), use_container_width=True)
 
-elif page == "Batch Prediction":
+            if st.button("Run Batch Prediction"):
 
-    st.title("📂 Batch Fraud Detection")
+                batch_df["Amount"] = pd.to_numeric(
+                    batch_df["Amount"],
+                    errors="coerce"
+                )
 
-    file = st.file_uploader("Upload CSV", type=["csv"])
+                batch_df["Amount"] = batch_df["Amount"].fillna(
+                    batch_df["Amount"].median()
+                )
 
-    if file is not None:
+                batch_df["scaled_amount"] = scaler.transform(
+                    batch_df[["Amount"]]
+                )[:, 0]
 
-        batch_df = pd.read_csv(file)
-        st.dataframe(batch_df.head())
+                batch_df.drop(
+                    columns=["Amount", "Time"],
+                    inplace=True,
+                    errors="ignore"
+                )
 
-        if st.button("Run Batch Prediction"):
+                prediction_df = batch_df[FEATURE_COLUMNS]
 
-            missing = [
-                c for c in FEATURE_COLUMNS
-                if c not in batch_df.columns
-            ]
+                batch_df["Prediction"] = model.predict(prediction_df)
 
-            if missing:
-                st.error(f"Missing columns: {missing}")
-                st.stop()
+                batch_df["Fraud_Probability"] = model.predict_proba(
+                    prediction_df
+                )[:, 1]
 
-            X = batch_df[FEATURE_COLUMNS]
+                batch_df["Risk_Level"] = np.where(
+                    batch_df["Fraud_Probability"] >= 0.80,
+                    "High",
+                    np.where(
+                        batch_df["Fraud_Probability"] >= 0.50,
+                        "Medium",
+                        "Low"
+                    )
+                )
 
-            pred = model.predict(X)
-            prob = model.predict_proba(X)[:, 1]
+                c1, c2, c3 = st.columns(3)
 
-            batch_df["Prediction"] = np.where(
-                pred == 1,
-                "FRAUD",
-                "LEGIT"
-            )
+                c1.metric("Total", len(batch_df))
+                c2.metric("Fraud", (batch_df["Prediction"] == 1).sum())
+                c3.metric("Legit", (batch_df["Prediction"] == 0).sum())
 
-            batch_df["Fraud_Probability"] = prob
+                st.dataframe(batch_df.head(100), use_container_width=True)
 
-            st.success("Analysis Complete")
-            st.dataframe(batch_df.head(50))
+                csv = batch_df.to_csv(index=False)
 
-            csv = batch_df.to_csv(index=False)
+                st.download_button(
+                    "⬇ Download Results",
+                    csv,
+                    "fraud_predictions.csv",
+                    "text/csv"
+                )
 
-            st.download_button(
-                "Download Results",
-                csv,
-                "fraud_predictions.csv",
-                "text/csv"
-            )
+# ==========================================
+# RISK ENGINE
+# ==========================================
+elif page == "⚡ Risk Engine":
 
-# =====================================================
+    st.title("⚡ Risk Engine")
+
+    st.metric(
+        "System Status",
+        "ACTIVE"
+    )
+
+    gauge = go.Figure(
+        go.Indicator(
+            mode="gauge+number",
+            value=72,
+            title={
+                "text": "Current Risk Level"
+            },
+            gauge={
+                "axis": {
+                    "range": [0, 100]
+                }
+            }
+        )
+    )
+
+    st.plotly_chart(
+        gauge,
+        use_container_width=True
+    )
+
+# ==========================================
 # ANALYTICS
-# =====================================================
+# ==========================================
+elif page == "📈 Analytics":
 
-elif page == "Analytics":
-
-    st.title("📊 Fraud Analytics")
+    st.title("📈 Analytics")
 
     if df is None:
-        st.warning("Upload dataset first.")
+        st.info("Upload dataset first.")
 
     else:
-        analytics_df = df.copy()
 
-        analytics_df["Class"] = analytics_df["Class"].map({
-            0: "Legitimate",
-            1: "Fraud"
-        })
+        if "scaled_amount" in df.columns:
 
-        metric_col = None
-
-        if "scaled_amount" in analytics_df.columns:
-            metric_col = "scaled_amount"
-        elif "Amount" in analytics_df.columns:
-            metric_col = "Amount"
-
-        if metric_col is None:
-            st.error("Neither 'Amount' nor 'scaled_amount' exists in the dataset.")
-        else:
-            fig1 = px.box(
-                analytics_df,
-                x="Class",
-                y=metric_col,
-                color="Class"
+            fig = px.histogram(
+                df,
+                x="scaled_amount",
+                nbins=50,
+                title="Scaled Amount Distribution"
             )
-            st.plotly_chart(fig1, use_container_width=True)
 
-            fig2 = px.histogram(
-                analytics_df,
-                x=metric_col,
-                color="Class"
+            st.plotly_chart(
+                fig,
+                use_container_width=True
             )
-            st.plotly_chart(fig2, use_container_width=True)
 
-# =====================================================
+# ==========================================
 # REPORTS
-# =====================================================
-
-elif page == "Reports":
+# ==========================================
+elif page == "📄 Reports":
 
     st.title("📄 Reports")
 
     if df is None:
-        st.warning("Upload dataset first.")
+        st.info("Upload dataset first.")
 
     else:
-        sample = df.sample(min(50, len(df)))
 
-        missing = [
-            c for c in FEATURE_COLUMNS
-            if c not in sample.columns
-        ]
+        st.subheader("Dataset Preview")
 
-        if missing:
-            st.error(f"Missing columns: {missing}")
-            st.stop()
-
-        X = sample[FEATURE_COLUMNS]
-
-        pred = model.predict(X)
-        prob = model.predict_proba(X)[:, 1]
-
-        sample["Decision"] = np.where(
-            pred == 1,
-            "FRAUD",
-            "LEGIT"
+        st.dataframe(
+            df.head(100),
+            use_container_width=True
         )
 
-        sample["Fraud_Score"] = prob
-
-        st.dataframe(sample)
-
-        csv = sample.to_csv(index=False)
+        csv = df.to_csv(index=False)
 
         st.download_button(
-            "Export Report",
-            csv,
-            "fraud_report.csv",
-            "text/csv"
+            label="⬇ Download Dataset",
+            data=csv,
+            file_name="fraud_report.csv",
+            mime="text/csv"
         )
 
-# =====================================================
+# ==========================================
 # ABOUT
-# =====================================================
-
-elif page == "About":
+# ==========================================
+elif page == "ℹ️ About":
 
     st.title("ℹ️ About")
 
     st.markdown("""
-### Radar Fraud Intelligence Platform
+    ### Fraud Detection Intelligence
 
-Features:
-- Real-time fraud prediction
-- Batch transaction screening
-- Risk scoring
-- Fraud analytics
-- Exportable reports
-- Machine Learning powered
+    This application uses a Machine Learning model
+    trained on credit card transaction data to:
 
-### Technology Stack
-- Python
-- Streamlit
-- Scikit-Learn
-- XGBoost
-- Plotly
-- Joblib
-""")
+    - Detect fraudulent transactions
+    - Analyze transaction risk
+    - Visualize fraud trends
+    - Generate reports
 
-    st.subheader("Loaded Model Type")
-    st.code(type(model).__name__)
+    **Model Features**
+    - V1 – V28
+    - scaled_amount
+
+    **Preprocessing**
+    - RobustScaler on Amount
+    - Amount removed
+    - Time removed
+    """)
+
+
+
+
+
+
+
+
+   
