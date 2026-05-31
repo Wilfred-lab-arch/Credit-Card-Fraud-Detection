@@ -1,5 +1,6 @@
 # Ignore dataset folders and files
 Data/
+.devcontainer/
 
 # Python bytecode and caches
 __pycache__/
