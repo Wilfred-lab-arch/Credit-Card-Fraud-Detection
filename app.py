@@ -99,6 +99,7 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Dataset error: {e}")
 
+
 # ==========================================
 # DASHBOARD
 # ==========================================
@@ -115,33 +116,52 @@ if page == "📊 Dashboard":
             fraud = (df["Class"] == 1).sum()
             legit = (df["Class"] == 0).sum()
             total = len(df)
+            fraud_percentage = (fraud / total) * 100
 
+            # 1. KPI Metrics
             c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Total Transactions", f"{total:,}")
+            c2.metric("Fraud Cases", f"{fraud:,}", delta=f"{fraud} detected", delta_color="inverse")
+            c3.metric("Legitimate", f"{legit:,}")
+            c4.metric("Fraud Rate", f"{fraud_percentage:.3f}%")
 
-            c1.metric("Total Transactions", total)
-            c2.metric("Fraud Cases", fraud)
-            c3.metric("Legitimate", legit)
-            c4.metric(
-                "Fraud Rate",
-                f"{(fraud/total)*100:.2f}%"
+            # Warning Banner for Class Imbalance
+            st.warning(
+                f"⚠️ **Extreme Class Imbalance Detected:** Fraudulent cases make up only **{fraud_percentage:.3f}%** "
+                "of the dataset. Standard accuracy is misleading here. The system uses specialized thresholding to prioritize Recall."
             )
 
-            fig = px.pie(
-                names=["Legitimate", "Fraud"],
-                values=[legit, fraud],
-                hole=0.65,
-                title="Fraud Distribution"
-            )
+            # 2. Side-by-Side Visualizations
+            chart_col1, chart_col2 = st.columns(2)
 
-            st.plotly_chart(
-                fig,
-                use_container_width=True
-            )
+            with chart_col1:
+                # Donut Chart for general distribution
+                fig_pie = px.pie(
+                    names=["Legitimate", "Fraud"],
+                    values=[legit, fraud],
+                    hole=0.6,
+                    title="Overall Transaction Mix",
+                    color_discrete_sequence=["#2ecc71", "#e74c3c"]
+                )
+                st.plotly_chart(fig_pie, use_container_width=True)
+
+            with chart_col2:
+                # Log-scaled Bar Chart to visually expose the tiny fraud class
+                fig_bar = px.bar(
+                    x=["Legitimate", "Fraud"],
+                    y=[legit, fraud],
+                    title="Class Volume Comparison (Log Scale)",
+                    labels={'x': 'Transaction Type', 'y': 'Count (Log Scale)'},
+                    color=["Legitimate", "Fraud"],
+                    color_discrete_sequence=["#2ecc71", "#e74c3c"]
+                )
+                fig_bar.update_layout(yaxis_type="log", showlegend=False)
+                st.plotly_chart(fig_bar, use_container_width=True)
 
         else:
-            st.warning(
-                "Class column not found. Dashboard metrics unavailable."
-            )
+            # Fallback if the uploaded data doesn't have ground-truth 'Class' labels
+            st.info("📊 Uploaded dataset does not contain historical 'Class' labels. Use the **Transaction Analyzer** to scan for risks.")
+
 
 # ==========================================
 # TRANSACTION ANALYZER
@@ -401,4 +421,4 @@ elif page == "ℹ️ About":
 
 
 
-   
+    
