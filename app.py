@@ -125,11 +125,22 @@ if page == "📊 Dashboard":
             c3.metric("Legitimate", f"{legit:,}")
             c4.metric("Fraud Rate", f"{fraud_percentage:.3f}%")
 
-            # Warning Banner for Class Imbalance
-            st.warning(
-                f"⚠️ **Extreme Class Imbalance Detected:** Fraudulent cases make up only **{fraud_percentage:.3f}%** "
-                "of the dataset. Standard accuracy is misleading here. The system uses specialized thresholding to prioritize Recall."
-            )
+            # Dynamic Banner based on the actual distribution
+            if fraud_percentage < 5.0:
+                st.error(
+                    f"⚠️ **Extreme Class Imbalance (Heavily Legitimate):** Fraudulent cases make up only **{fraud_percentage:.3f}%** "
+                    "of the dataset. Standard accuracy is misleading here. The system uses specialized thresholding to prioritize Recall."
+                )
+            elif fraud_percentage > 60.0:
+                st.error(
+                    f"🚨 **Extreme Critical Spike (Heavily Fraudulent):** An overwhelming **{fraud_percentage:.3f}%** of uploaded transactions "
+                    "are flagged as ground-truth Fraud. Your network is currently under massive attack simulation."
+                )
+            else:
+                st.success(
+                    f"⚖️ **Balanced Dataset Mix:** Fraudulent cases make up **{fraud_percentage:.3f}%** of this sample. "
+                    "This is an optimized testing distribution."
+                )
 
             # 2. Side-by-Side Visualizations
             chart_col1, chart_col2 = st.columns(2)
@@ -307,24 +318,72 @@ elif page == "⚡ Risk Engine":
 
     st.title("⚡ Risk Engine")
 
-    st.metric(
-        "System Status",
-        "ACTIVE"
-    )
+    if df is None:
+        # If no dataset has been uploaded yet, keep it at a baseline normal state
+        system_status = "NORMAL"
+        risk_value = 0.0
+        status_color = "normal"
+        gauge_color = "#2ecc71"  # Clean green
+        st.info("ℹ️ Upload a dataset in the sidebar to see live system telemetry.")
+    else:
+        # Calculate live risk from the uploaded dataset
+        if "Class" in df.columns:
+            fraud_cases = (df["Class"] == 1).sum()
+            total_cases = len(df)
+            risk_value = (fraud_cases / total_cases) * 100
+        else:
+            # Fallback if dataset doesn't have ground truth labels
+            risk_value = 15.0  # Simulated nominal baseline
 
+        # Dynamically calculate the risk categories and UI styles
+        if risk_value < 5.0:
+            system_status = "SECURE (LOW RISK)"
+            status_color = "normal"
+            gauge_color = "#2ecc71"  # Green
+        elif risk_value <= 50.0:
+            system_status = "ELEVATED THREAT PROFILE"
+            status_color = "off"
+            gauge_color = "#f39c12"  # Amber/Yellow
+        else:
+            system_status = "CRITICAL UNDER ATTACK"
+            status_color = "inverse"
+            gauge_color = "#e74c3c"  # Red
+
+    # 1. Show dynamic state indicators
+    col1, col2 = st.columns(2)
+    col1.metric("System Status", system_status, delta=f"{risk_value:.2f}% Threat Index", delta_color=status_color)
+    col2.metric("Active Node monitoring", "ONLINE" if df is not None else "STANDBY")
+
+    # 2. Build the live telemetry Gauge
     gauge = go.Figure(
         go.Indicator(
             mode="gauge+number",
-            value=72,
+            value=risk_value,
             title={
-                "text": "Current Risk Level"
+                "text": "Current Live Risk Level (%)",
+                "font": {"size": 20}
             },
+            number={'valueformat': '.2f', 'suffix': '%'},
             gauge={
                 "axis": {
-                    "range": [0, 100]
-                }
+                    "range": [0, 100],
+                    "tickwidth": 1,
+                    "tickcolor": "gray"
+                },
+                "bar": {"color": gauge_color},
+                "bgcolor": "rgba(0,0,0,0.05)",
+                "steps": [
+                    {"range": [0, 5], "color": "rgba(46, 204, 113, 0.1)"},
+                    {"range": [5, 50], "color": "rgba(243, 156, 18, 0.1)"},
+                    {"range": [50, 100], "color": "rgba(231, 76, 60, 0.1)"}
+                ]
             }
         )
+    )
+
+    gauge.update_layout(
+        margin=dict(l=20, r=20, t=50, b=20),
+        height=350
     )
 
     st.plotly_chart(
@@ -421,4 +480,3 @@ elif page == "ℹ️ About":
 
 
 
-    
