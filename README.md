@@ -9,6 +9,7 @@ Credit card fraud is a major challenge in the financial industry, resulting in s
 The solution covers the complete machine learning lifecycle, from data preprocessing and model training to deployment and user interaction.
 
 //🚀 Features
+
 Machine Learning
 Data Cleaning and Preprocessing
 Feature Scaling
@@ -32,6 +33,7 @@ Fraud Analytics Dashboard
 User-Friendly FinTech Interface
 
 //🛠️ Tech Stack
+
 Programming Language
 Python
 Data Processing
@@ -50,26 +52,6 @@ Streamlit
 GitHub
 Streamlit Community Cloud
 
-//
-// 📂 Project Structure
-credit-card-fraud-detection/
-│
-├── data/
-│   ├── creditcard.csv
-│   └── cleaned_creditcard.csv
-│
-├── models/
-│   ├── best_fraud_model.pkl
-│   ├── scaler.pkl
-│   └── feature_columns.pkl
-│
-├── notebooks/
-│   └── fraud_detection.ipynb
-│
-├── app.py
-├── requirements.txt
-├── README.md
-└── screenshots/
 
 
 //🔄 Machine Learning Workflow
