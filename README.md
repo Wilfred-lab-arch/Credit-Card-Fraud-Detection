@@ -1,14 +1,19 @@
-💳 Credit Card Fraud Detection System
+# 💳 Credit Card Fraud Detection
 
-An end-to-end Machine Learning and FinTech Analytics project designed to detect fraudulent credit card transactions using classification algorithms and deploy predictions through an interactive Streamlit web application.
+An end-to-end machine learning project that detects fraudulent credit card transactions and exposes predictions via a Streamlit web app.
 
-📌 Project Overview
+---
+
+
+
+# -📌 Project Overview
 
 Credit card fraud is a major challenge in the financial industry, resulting in significant losses for banks, businesses, and customers. This project leverages machine learning techniques to identify potentially fraudulent transactions and provide real-time fraud risk assessment.
 
 The solution covers the complete machine learning lifecycle, from data preprocessing and model training to deployment and user interaction.
 
-//🚀 Features
+---
+#🚀 Features
 
 Machine Learning
 Data Cleaning and Preprocessing
@@ -32,7 +37,7 @@ Download Prediction Results
 Fraud Analytics Dashboard
 User-Friendly FinTech Interface
 
-//🛠️ Tech Stack
+# -🛠️ Tech Stack
 
 Programming Language
 Python
@@ -43,11 +48,7 @@ Machine Learning
 Scikit-learn
 Imbalanced-learn (SMOTE)
 Random Forest
-# Credit Card Fraud Detection
 
-An end-to-end machine learning project that detects fraudulent credit card transactions and exposes predictions via a Streamlit web app.
-
----
 
 **Key features**
 - Single-transaction prediction and batch CSV prediction
