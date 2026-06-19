@@ -43,87 +43,89 @@ Machine Learning
 Scikit-learn
 Imbalanced-learn (SMOTE)
 Random Forest
-Logistic Regression
-Visualization
-Plotly
-Matplotlib
-Deployment
-Streamlit
-GitHub
-Streamlit Community Cloud
+# Credit Card Fraud Detection
 
+An end-to-end machine learning project that detects fraudulent credit card transactions and exposes predictions via a Streamlit web app.
 
+---
 
-//🔄 Machine Learning Workflow
-Data Collection
-        ↓
-Data Cleaning
-        ↓
-Exploratory Data Analysis
-        ↓
-Feature Scaling
-        ↓
-Train-Test Split
-        ↓
-SMOTE Balancing
-        ↓
-Model Training
-        ↓
-Model Evaluation
-        ↓
-Best Model Selection
-        ↓
-Model Saving
-        ↓
-Streamlit Deployment
+**Key features**
+- Single-transaction prediction and batch CSV prediction
+- Streamlit dashboard for visualization and monitoring
+- Data preprocessing pipeline (scaling, duplicate removal)
+- Class imbalance handling with SMOTE
+- Model training and evaluation (Logistic Regression, Random Forest)
+- Saved model for inference (`fraud_pipeline.pkl`)
 
+---
 
-//📊 Dataset
+## Quick Start
 
-The project uses the Credit Card Fraud Detection dataset containing anonymized transaction features.
+Prerequisites
+- Python 3.10+ (recommended)
+- A virtual environment (optional but recommended)
 
-Target Variable
-Class	Description
-0	Legitimate Transaction
-1	Fraudulent Transaction
-Dataset Challenges
-Highly Imbalanced Data
-Very Few Fraud Cases
-Need for Specialized Evaluation Metrics
+Install dependencies:
 
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
 
-//🧹 Data Preprocessing
+Run the Streamlit app locally:
 
-The following preprocessing steps were performed:
+```powershell
+streamlit run app.py --server.enableCORS false --server.enableXsrfProtection false
+```
 
-Missing Value Analysis
-Duplicate Removal
-Feature Scaling using StandardScaler
-Feature Selection
-Train-Test Split
-Class Balancing using SMOTE
+Open the forwarded port `8501` in your browser to view the dashboard.
 
-//- 🤖 Models Used
-Logistic Regression
+---
 
-Used as the baseline model for fraud classification.
+## Files and Structure
+- `app.py` — Streamlit application and inference endpoints
+- `fraud_pipeline.pkl` — Serialized preprocessing + model pipeline used by the app
+- `Data/` — dataset files and notebooks
+  - `creditcard.csv` — original dataset (if present)
+  - `cleaned_creditcard_data.csv` — cleaned dataset used for training
+  - `CREDIT CARD FRAUD DETECTION - 2.ipynb` — exploratory notebook
+- `.devcontainer/` — local devcontainer config (ignored by git)
+- `requirements.txt` — Python dependencies
 
-Random Forest
+---
 
-Selected as the final model due to stronger fraud detection performance and improved recall.
+## Data
 
-//📈 Model Evaluation Metrics
+This project uses the anonymized credit card transactions dataset with a `Class` target where `0` = legitimate and `1` = fraud. The dataset is highly imbalanced, so evaluation emphasizes recall and other robust metrics.
 
-The models were evaluated using:
+If you need to retrain the model, use the notebook in `Data/` to reproduce preprocessing and training steps.
 
-Precision
-Recall
-F1 Score
-Confusion Matrix
-ROC-AUC Score
+---
 
-// -Why Recall Matters
+## How it works (high level)
+1. Load and clean the dataset
+2. Scale features and apply SMOTE to address class imbalance
+3. Train models and evaluate (precision, recall, F1, ROC-AUC)
+4. Save best model pipeline to `fraud_pipeline.pkl`
+5. `app.py` loads the pipeline for inference and provides a Streamlit UI for predictions and analytics
 
-In fraud detection, missing fraudulent transactions can be more costly than generating false alarms.
+---
 
-Therefore, Recall was prioritized during model selection.
+## Notes on Deployment & Security
+- The devcontainer is for local development only and is ignored by git.
+- When deploying publicly, do not disable CORS/XSRF protections; the flags used above are convenient for local development only.
+
+---
+
+## Contributing
+- Open an issue or submit a pull request with improvements.
+
+---
+
+## License & Contact
+Specify your license here (e.g. MIT) and add contact info or a project owner email if desired.
+
+---
+
+If you'd like, I can also add a short `CONTRIBUTING.md` and a license file. 
